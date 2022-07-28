@@ -215,8 +215,8 @@ y_safe[y_safe == "Other"] <- 3
 y_safe[y_safe == "Stable"] <- 4
 y_safe <- as.integer(y_safe)
 
-write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_y_",padding_days,".csv"),row.names = FALSE)
-write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_x_",padding_days,".csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
+write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_y_",padding_days,".csv"),row.names = FALSE)
+write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_x_",padding_days,".csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
 
 # ff <- array(x_safe, dim = c(799,length(index_list),(2 * padding_days + 1)))
