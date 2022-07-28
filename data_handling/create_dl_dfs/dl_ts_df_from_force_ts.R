@@ -66,7 +66,7 @@ table(df_inters$change_process)
 classes_to_include <- c("Fire","Harvest","Other","Stable")
 number_of_samples  <- 200
 path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_2_with_outliers_till_2022_post1.csv"
-padding_days    <- 5
+padding_days    <- 10
 years_prior_stable <- 4
 ids_to_exclude <-  c(3142, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
 index_list <- c("NBR", "NDV", "TCW", "TCG", "TCB")
@@ -161,6 +161,21 @@ bm_select_ref_and_extract_dl_df <- function(L_ts, df_inters,classes_to_include, 
     
   selected_ts_2$instances_rep <- selected_reps
   
+  ## add sequence
+  Getsequence <- function(x) {
+    times = 2 * padding_days + 1  ## how many times replicate pulled instance 
+    seq <- seq(1, times)
+    return(seq)
+  }
+  selected_sequence <- selected_ts %>%
+    mutate(row_id = row_number()) %>%
+    filter((!is.na(.$instance))) %>%
+    pull(instance) %>%
+    map(Getsequence) %>%
+    unlist()
+  
+  selected_ts_2$time_seq <- selected_sequence
+  
   selected_changes <- selected_ts %>%
     mutate(row_id = row_number()) %>%
     filter((!is.na(.$instance))) %>%
@@ -183,4 +198,34 @@ df_for_dl <- bm_select_ref_and_extract_dl_df(L_ts=L_ts,
                                 index_list = index_list)
 table(df_for_dl$change_process)
 
-write.csv2(df_for_dl, "P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_for_dl_200_4_classes.csv")
+#write.csv2(df_for_dl, "P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_for_dl_200_4_classes.csv")
+#df_for_dl <- read.csv2("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_for_dl_200_4_classes.csv")
+
+df_for_dl_wide <- df_for_dl %>% select(!c(date,change_process,diff,instance, sensor)) %>% pivot_wider(names_from = c(time_seq),values_from = value) %>%
+  arrange(.,id,index) %>% as.data.frame()
+
+y_safe <- df_for_dl_wide$changes_rep[seq(1,nrow(df_for_dl_wide),length(index_list))]
+x_safe <-  df_for_dl_wide %>% select(c(seq(ncol(df_for_dl_wide)- (2 * padding_days ), ncol(df_for_dl_wide))))
+## 799 samples
+## anforderungen -- [samples, features, timeseries per feature]
+
+y_safe[y_safe == "Fire"] <- 1
+y_safe[y_safe == "Harvest"] <- 2
+y_safe[y_safe == "Other"] <- 3
+y_safe[y_safe == "Stable"] <- 4
+y_safe <- as.integer(y_safe)
+
+write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_y_",padding_days,".csv"),row.names = FALSE)
+write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_x_",padding_days,".csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
+
+
+# ff <- array(x_safe, dim = c(799,length(index_list),(2 * padding_days + 1)))
+# print(ff)
+# 
+# 
+# vector1 <- c(5, 9, 3)
+# vector2 <- c(10, 11, 12, 13, 14, 15)
+# 
+# # Take these vectors as input to the array.
+# result <- array(c(vector1, vector2), dim = c(3, 3, 2))
+# print(result)
