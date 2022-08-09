@@ -186,7 +186,12 @@ bm_select_ref_and_extract_dl_df <- function(L_ts, df_inters,classes_to_include, 
 
  
   return(selected_ts_2)
-    }
+}
+
+
+
+
+## Apply 
 
 df_for_dl <- bm_select_ref_and_extract_dl_df(L_ts=L_ts,
                                              df_inters = df_inters,
@@ -219,13 +224,3 @@ write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_ta
 write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_x_",padding_days,".csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
 
-# ff <- array(x_safe, dim = c(799,length(index_list),(2 * padding_days + 1)))
-# print(ff)
-# 
-# 
-# vector1 <- c(5, 9, 3)
-# vector2 <- c(10, 11, 12, 13, 14, 15)
-# 
-# # Take these vectors as input to the array.
-# result <- array(c(vector1, vector2), dim = c(3, 3, 2))
-# print(result)
