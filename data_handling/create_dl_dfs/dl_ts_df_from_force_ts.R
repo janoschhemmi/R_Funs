@@ -312,11 +312,11 @@ bm_extract_dl_df <- function(L_ts, df_inters,classes_to_include = c("Harvest","O
 ## Apply 
 ## #1 select sliced time window 
 classes_to_include <- c("Fire","Harvest","Other","Stable", "Growth")
-number_of_samples  <- 300
+number_of_samples  <- 400
 path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_2_with_outliers_till_2022_post1.csv"
-padding_days    <- 8
+padding_days    <- 10
 years_prior_stable <- 3
-ids_to_exclude <-  c(3142, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
+ids_to_exclude <-  c(3142,719, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
 index_list <- c("NBR", "NDV", "TCW", "TCG", "TCB")
 
 
@@ -348,13 +348,13 @@ y_safe[y_safe == "Stable"] <- 4
 y_safe[y_safe == "Growth"] <- 5
 y_safe <- as.integer(y_safe)
 
-write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_y_",padding_days,"_2.csv"),row.names = FALSE)
-write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_x_",padding_days,"_2.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
+write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_y_",padding_days,"_400smps.csv"),row.names = FALSE)
+write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_x_",padding_days,"_400smps.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
 ##
 ## #2 all time series 
 
-df_for_dl <- bm_extract_dl_df(L_ts[1:100000,], df_inters,classes_to_include = c("Harvest","Other","Fire","Growth","Wind","Decline","Hydrology"), 
+df_for_dl <- bm_extract_dl_df(L_ts[1:200000,], df_inters,classes_to_include = c("Harvest","Other","Fire","Growth","Wind","Decline","Hydrology"), 
                               ids_to_exclude = ids_to_exclude, index_list = c("NBR", "NDV", "TCW", "TCG", "TCB")
 )
 table(df_for_dl$change_process)
@@ -365,8 +365,8 @@ df_for_dl_wide <- df_for_dl %>% select(!c(change_process,date,diff,instance, sen
 # df_for_dl_wide_change_process <- df_for_dl %>% select(!c(date,diff,instance, sensor)) %>% pivot_wider(names_from = c(time_sequence),values_from = c(change_process)) %>%
 #   arrange(.,id,index) %>% replace_na(is.na(.),0) %>% as.data.frame()
 
-write.table(df_for_dl_wide, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/03_df_x_50000_ts.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
-write.table(df_for_dl, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/03_df_x_100000_ts_long.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
+#write.table(df_for_dl_wide, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/03_df_x_50000_ts.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
+write.table(df_for_dl, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/03_df_x_200000_ts_long.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
 
 
