@@ -1,36 +1,8 @@
 
-### global Settings 
-.libPaths("S:/BrandSat/02_Code/R/library_6")
-
-
-library(bfast)
-library(zoo)
-library(rlang)
-library(stlplus)
-library(lubridate)
-library(devtools)
-library(svMisc)
-library(snow)
-library(lubridate)
-library(hms)
-library(rgdal)
-library(ggplot2)
-library(data.table)
-library(reshape2)
-library(tidyr)
-library(Rcpp)
-library(dplyr)
-library(randomForest)
-library(data.table)
-library(randomForest)
-library(flextable)
-library(terra)
-library(readr)
-library(purrr)
-
+source("data_handling/create_dl_dfs/utils_dl_ts_from_force_ts.R")
 source("data_handling/create_dl_dfs/bm_tsync_prepare.R")
 
-
+## #1
 ## load timesync
 
 # file names and paths
@@ -42,282 +14,56 @@ bb_comment <- read_csv(file.path(tsync_p, "tsync_plots_bb_jan_interpretations_co
 fires_comments <- read_csv(file.path(tsync_p, "tsync_fires_interpretations_comment.csv"), show_col_types = FALSE)
 fires_post1_comments <- read_csv(file.path(tsync_p, "tsync_fires_post_training1_interpretations_comment.csv"), show_col_types = FALSE)
 fires_post2_comments <- read_csv(file.path(tsync_p, "tsync_fires_post_training2_interpretations_comment.csv"), show_col_types = FALSE)
+wind1_comments <- read_csv(file.path(tsync_p, "tsync_wind_1_interpretations_comment.csv"), show_col_types = FALSE)
+wind2_comments <- read_csv(file.path(tsync_p, "tsync_wind_2_interpretations_comment.csv"), show_col_types = FALSE)
 
-df_comments <- rbind(bb_comment, fires_comments, fires_post1_comments,fires_post2_comments)
-
+df_comments <- rbind(bb_comment, fires_comments, fires_post1_comments,fires_post2_comments, wind1_comments, wind2_comments)
 
 bb_interpretations <- read_csv(file.path(tsync_p, "tsync_plots_bb_jan_interpretations.csv"), show_col_types = FALSE)
 fires_interpretations <- read_csv(file.path(tsync_p, "tsync_fires_interpretations.csv"), show_col_types = FALSE)
 fires_post1interpretations <- read_csv(file.path(tsync_p, "tsync_fires_post_training1_interpretations.csv"), show_col_types = FALSE)
 fires_post2interpretations <- read_csv(file.path(tsync_p, "tsync_fires_post_training2_interpretations.csv"), show_col_types = FALSE)
+wind1_inter <- read_csv(file.path(tsync_p, "tsync_wind_1_interpretations.csv"), show_col_types = FALSE)
+wind2_inter <- read_csv(file.path(tsync_p, "tsync_wind_2_interpretations.csv"), show_col_types = FALSE)
 
-df_inters <- rbind(fires_interpretations, fires_post1interpretations,fires_post2interpretations, bb_interpretations)
-df_inters[df_inters$plotid == "3067",]
-# 
+df_inters <- rbind(fires_interpretations, fires_post1interpretations,fires_post2interpretations, bb_interpretations, wind1_inter, wind2_inter)
+ 
 rm(fires_interpretations, bb_interpretations,fires_post1interpretations,fires_post2interpretations,
    bb_comment, fires_comments,fires_post1_comments, fires_post2_comments)
 # 
 # bm_tsync_prepare(df_inters, df_comments, out_csv_file, overwrite = T)
 
 ## df_inters 
+## read if not processed
+df_inters <- read.csv2(file.path("P:/workspace/jan/fire_detection/disturbance_ref/bb_timesync_reference_with_wind.csv"))
 table(df_inters$change_process)
 
-##
-classes_to_include <- c("Fire","Harvest","Other","Stable")
-number_of_samples  <- 200
-path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_2_with_outliers_till_2022_post1.csv"
-padding_days    <- 10
-years_prior_stable <- 4
-ids_to_exclude <-  c(3142, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
-index_list <- c("NBR", "NDV", "TCW", "TCG", "TCB")
 
+# _______________________________________________________________________________ #
+
+## load 
 L_ts            <- read.csv2(path_LandSat_ts)
 
-bm_select_ref_and_extract_dl_df <- function(L_ts, df_inters,classes_to_include, number_of_samples, padding_days = padding_days, 
-                          years_prior_stable, ids_to_exclude = ids_to_exclude, index_list
-                          ){
-  
-  set.seed(85)
-  ## filter_ref
-  df_inters_filtered <- df_inters %>% 
-    filter(change_process %in% classes_to_include) %>%
-    group_by(plotid) %>%
-    mutate(dist_prior = image_year - lag(image_year)) %>%
-    ungroup() %>%
-    mutate(instance = row_number())
-  
-  ## exclude refs that are always exlcuded
-  df_inters_filtered <- df_inters_filtered[!df_inters_filtered$plotid %in% ids_to_exclude,]
-  df_inters_filtered <- df_inters_filtered[df_inters_filtered$plotid %in% L_ts$id,]
-  
-  ## sample disturbances
-  df_disturbances <- df_inters_filtered %>%
-    filter(change_process %in% classes_to_include[!classes_to_include %in% c("Stable","Growth")]) %>%
-    filter(image_year > 1989) %>%
-    group_by(change_process) %>%
-    do(sample_n(.,number_of_samples))
-    
-  ## sample stables (randomly in stable time window)
-  df_stable <- df_inters_filtered %>%
-    filter(change_process %in% c ("Stable")) %>%
-    mutate(dist_prior = replace_na(dist_prior, 0)) %>%
-    filter(dist_prior >= years_prior_stable) %>%
-    group_by(change_process) %>%
-    do(sample_n(.,number_of_samples)) %>%
-    ungroup() %>%
-    mutate(image_year =  image_year - as.integer(runif(nrow(.), min = 1, max = dist_prior)),
-           image_julday = as.integer(runif(nrow(.), min = 0, max = 365)))
-  
-  ## sample Growth (halfway in growth window)
-  df_growth <- df_inters_filtered %>%
-    filter(change_process %in% c ("Growth")) %>%
-    mutate(dist_prior = replace_na(dist_prior, 0)) %>%
-    filter(dist_prior >= (years_prior_stable-1)) %>%
-    group_by(change_process) %>%
-    do(sample_n(.,number_of_samples)) %>%
-    ungroup() %>%
-    mutate(image_year =  image_year - as.integer(dist_prior / 2),
-           image_julday = as.integer(runif(nrow(.), min = 0, max = 365)))
-  
-  ## combine
-  df <- rbind(df_disturbances, df_stable, df_growth) %>%
-    mutate(date_ref = strptime(paste(image_year, image_julday), format="%Y %j"))
-  
-  ## selct closest observation for each ref 
-  closest_observations <- L_ts %>% filter(.$id %in% df$plotid) %>% 
-    filter(index == "NBR") %>%
-    left_join(df, by = c("id"="plotid")) %>%
-    mutate(diff = abs(as.numeric(difftime(date, date_ref, units = "days")))) %>%
-    group_by(id, instance) %>%
-    slice(which.min((diff))) %>%
-    ungroup() %>%
-    select(id,date,change_process,diff, instance) %>%
-    as.data.frame()
-  
- 
-  ## get padding days for each index 
-  ## left_join_by date 
-  selected_ts <- L_ts %>% filter(index %in% index_list) %>%
-    filter(id %in% df$plotid) %>% 
-    left_join(.,closest_observations, by = c("id" = "id", "date" = "date")) #%>%
-  
-  GetIDsBeforeAfter <- function(x) {
-    v = (x-padding_days) : (x+padding_days)
-  }
-  
-  ## row ids with padding
-  selected_row_ids <- selected_ts %>%
-    mutate(row_id = row_number()) %>%
-    filter((!is.na(change_process))) %>%
-    pull(row_id) %>%
-    map(GetIDsBeforeAfter) %>%
-    unlist()
-  
-  selected_ts_2 <- selected_ts[selected_row_ids,]
-  
-  
-  ## expant instances and change process rows
-  GetrepsBeforeAfter <- function(x) {
-    times = 2 * padding_days + 1  ## how many times replicate pulled instance 
-    replicated <- rep(x, times)
-    return(replicated)
-    }
-  
-  selected_reps <- selected_ts %>%
-    mutate(row_id = row_number()) %>%
-    filter((!is.na(.$instance))) %>%
-    pull(instance) %>%
-    map(GetrepsBeforeAfter) %>%
-    unlist()
-    
-  selected_ts_2$instances_rep <- selected_reps
-  
-  ## add sequence
-  Getsequence <- function(x) {
-    times = 2 * padding_days + 1  ## how many times replicate pulled instance 
-    seq <- seq(1, times)
-    return(seq)
-  }
-  selected_sequence <- selected_ts %>%
-    mutate(row_id = row_number()) %>%
-    filter((!is.na(.$instance))) %>%
-    pull(instance) %>%
-    map(Getsequence) %>%
-    unlist()
-  
-  selected_ts_2$time_seq <- selected_sequence
-  
-  selected_changes <- selected_ts %>%
-    mutate(row_id = row_number()) %>%
-    filter((!is.na(.$instance))) %>%
-    pull(change_process) %>%
-    map(GetrepsBeforeAfter) %>%
-    unlist()
-  selected_ts_2$changes_rep <- selected_changes
-
- 
-  return(selected_ts_2)
-}
-
-## output all time series 
-bm_extract_dl_df <- function(L_ts, df_inters,classes_to_include = c("Harvest","Other","Fire","Growth","Wind","Decline","Hydrology"), number_of_samples, ids_to_exclude = ids_to_exclude, index_list
-){
-  
-  set.seed(102)
-  df_inters_filtered <- df_inters %>% 
-     filter(change_process %in% classes_to_include) %>%
-     #group_by(plotid) %>%
-     #mutate(dist_prior = image_year - lag(image_year)) %>%
-     #ungroup() %>%
-     mutate(instance = row_number())
-  # 
-  
-  df_inters_filtered <- df_inters_filtered[!df_inters_filtered$plotid %in% ids_to_exclude,]
-  df_inters_filtered <- df_inters_filtered[df_inters_filtered$plotid %in% L_ts$id,]
-  
-  df_inters_filtered <- df_inters_filtered %>%
-    mutate(date_ref = strptime(paste(image_year, image_julday), format="%Y %j"))
-  
-  #head(L_ts)
-  #L_ts_s <- L_ts
-  #L_ts <- L_ts_s[1:400000,]
-  
-  ## selct closest observation for each ref 
-  closest_observations <- L_ts %>% filter(.$id %in% df_inters_filtered$plotid) %>% 
-    filter(index == "NBR") %>%
-    left_join(df_inters_filtered, by = c("id"="plotid")) %>%
-    mutate(diff = abs(as.numeric(difftime(date, date_ref, units = "days")))) %>%
-    group_by(id, instance) %>%
-    slice(which.min((diff))) %>%
-    ungroup() %>%
-    select(id,date,change_process,diff, instance) %>%
-    as.data.frame()
-  
-  #table(closest_observations$change_process)
-  
-  ## get padding days for each index 
-  ## left_join_by date 
-  selected_ts <- L_ts %>% filter(index %in% index_list) %>%
-    filter(id %in% df_inters_filtered$plotid) %>% 
-    left_join(.,closest_observations, by = c("id" = "id", "date" = "date")) #%>%
-  
-  # GetIDsBeforeAfter <- function(x) {
-  #   v = (x-padding_days) : (x+padding_days)
-  # }
-  
-  ## row ids with padding
-  # selected_row_ids <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(change_process))) %>%
-  #   pull(row_id) %>%
-  #   map(GetIDsBeforeAfter) %>%
-  #   unlist()
-  # 
-  # selected_ts_2 <- selected_ts[selected_row_ids,]
-  
-  
-  ## expant instances and change process rows
-  # GetrepsBeforeAfter <- function(x) {
-  #   times = 2 * padding_days + 1  ## how many times replicate pulled instance 
-  #   replicated <- rep(x, times)
-  #   return(replicated)
-  # }
-  # 
-  # selected_reps <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(.$instance))) %>%
-  #   pull(instance) %>%
-  #   map(GetrepsBeforeAfter) %>%
-  #   unlist()
-  # 
-  # selected_ts_2$instances_rep <- selected_reps
-  # 
-  # ## add sequence
-  # Getsequence <- function(x) {
-  #   times = 2 * padding_days + 1  ## how many times replicate pulled instance 
-  #   seq <- seq(1, times)
-  #   return(seq)
-  # }
-  # selected_sequence <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(.$instance))) %>%
-  #   pull(instance) %>%
-  #   map(Getsequence) %>%
-  #   unlist()
-  # 
-  # selected_ts_2$time_seq <- selected_sequence
-  # 
-  # selected_changes <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(.$instance))) %>%
-  #   pull(change_process) %>%
-  #   map(GetrepsBeforeAfter) %>%
-  #   unlist()
-  # selected_ts_2$changes_rep <- selected_changes
-  
-  # add sequence number 
-  selected_ts <- selected_ts %>%
-    group_by(id, index) %>%
-    mutate(time_sequence = row_number()) %>%
-    ungroup() %>%
-    as.data.frame()
-  
-  
-  return(selected_ts)
-}
 
 
+# _______________________________________________________________________________ #
 
+#### #1 Apply sliced time window selection ####
 
-## Apply 
-## #1 select sliced time window 
-classes_to_include <- c("Fire","Harvest","Other","Stable", "Growth")
+classes_to_include <- c("Fire","Harvest","Other","Growth","Stable", "Wind")
 number_of_samples  <- 400
 path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_2_with_outliers_till_2022_post1.csv"
 padding_days    <- 10
 years_prior_stable <- 3
 ids_to_exclude <-  c(3142,719, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
+wind_exclude <- c(84, 85, 87, 88, 89, 91, 93, 94, 96, 97, 98, 99,100, 102, 103, 104, 106, 107, 108, 109, 110, 111, 112, 113, 114, 119, 120, 122, 126, 127, 130,  131, 134,135, 136, 139, 142, 143, 144, 150, 155, 156, 158, 164, 168, 169, 172, 177, 178, 179, 182, 183, 184, 185, 188, 189, 190, 192, 193, 194, 195, 197, 199, 201, 204, 206, 207, 208, 209, 210, 211, 213, 221, 222, 223, 224, 225, 228, 229, 231, 233, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 260, 261, 262, 264, 267, 268, 269, 270, 271, 272, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 314, 315, 316, 317, 318, 319, 320, 321, 322, 325, 326, 329, 330, 331, 332, 333, 334, 335, 336, 341, 342, 343, 344, 345, 347, 348, 349, 351, 356, 357, 358, 359, 361, 363) + 6000
+wind_exclude_2 <- c(0, 2, 3, 4, 6, 7, 9, 11, 19, 20, 21, 24, 27, 30, 33, 34, 35, 43, 46, 47, 49) + 7000
+
+ids_to_exclude <- c(ids_to_exclude, wind_exclude, wind_exclude_2)
+
 index_list <- c("NBR", "NDV", "TCW", "TCG", "TCB")
+index_list <- c("BLU","GRN","RED","NIR","SW1","SW2","NDV","EVI","NBR")
+
 
 
 df_for_dl <- bm_select_ref_and_extract_dl_df(L_ts=L_ts,
@@ -351,8 +97,9 @@ y_safe <- as.integer(y_safe)
 write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_y_",padding_days,"_400smps.csv"),row.names = FALSE)
 write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_x_",padding_days,"_400smps.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
-##
-## #2 all time series 
+
+# _______________________________________________________________________________ #
+#### #2 Apply all time series selection ####
 
 df_for_dl <- bm_extract_dl_df(L_ts[1:200000,], df_inters,classes_to_include = c("Harvest","Other","Fire","Growth","Wind","Decline","Hydrology"), 
                               ids_to_exclude = ids_to_exclude, index_list = c("NBR", "NDV", "TCW", "TCG", "TCB")
