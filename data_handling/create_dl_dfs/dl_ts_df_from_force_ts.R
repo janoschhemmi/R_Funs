@@ -27,7 +27,7 @@ wind1_inter <- read_csv(file.path(tsync_p, "tsync_wind_1_interpretations.csv"), 
 wind2_inter <- read_csv(file.path(tsync_p, "tsync_wind_2_interpretations.csv"), show_col_types = FALSE)
 
 df_inters <- rbind(fires_interpretations, fires_post1interpretations,fires_post2interpretations, bb_interpretations, wind1_inter, wind2_inter)
- 
+
 rm(fires_interpretations, bb_interpretations,fires_post1interpretations,fires_post2interpretations,
    bb_comment, fires_comments,fires_post1_comments, fires_post2_comments)
 # 
@@ -41,11 +41,28 @@ table(df_inters$change_process)
 
 # _______________________________________________________________________________ #
 
-## load 
+## load LS 
+path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_dl_2.csv"
 L_ts            <- read.csv2(path_LandSat_ts)
 
+length(intersect(df_inters$plotid, L_ts$id))
+
+## filter fot tiles with all incides 
+indicies <- unique(L_ts$index)
+tiles_to_keep <- L_ts %>% group_by(tile) %>% summarise(n_index = length(unique(index))) %>% filter(n_index == max(n_index)) %>% ungroup()
+L_ts <- L_ts[L_ts$tile %in% tiles_to_keep$tile, ]
+
+## only keep samples that are in tsync ref and Landsat
+
+tt <- L_ts[L_ts$id %in% intersect(L_ts$id, df_inters$id), ]
 
 
+length(unique(L_ts$id))
+
+unique(df_inters$plotid)
+unique(L_ts$id)
+
+df_inters$plotid[!df_inters$plotid %in% L_ts$id]
 # _______________________________________________________________________________ #
 
 #### #1 Apply sliced time window selection ####
@@ -68,12 +85,12 @@ index_list <- c("BLU","GRN","RED","NIR","SW1","SW2","NDV","EVI","NBR")
 
 df_for_dl <- bm_select_ref_and_extract_dl_df(L_ts=L_ts,
                                              df_inters = df_inters,
-                                classes_to_include = classes_to_include,
-                                number_of_samples = number_of_samples, 
-                                padding_days = padding_days, 
-                                years_prior_stable = years_prior_stable, 
-                                ids_to_exclude = ids_to_exclude, 
-                                index_list = index_list)
+                                             classes_to_include = classes_to_include,
+                                             number_of_samples = number_of_samples, 
+                                             padding_days = padding_days, 
+                                             years_prior_stable = years_prior_stable, 
+                                             ids_to_exclude = ids_to_exclude, 
+                                             index_list = index_list)
 table(df_for_dl$change_process)
 
 #write.csv2(df_for_dl, "P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_for_dl_200_4_classes.csv")
