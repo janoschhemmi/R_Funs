@@ -36,15 +36,18 @@ rm(fires_interpretations, bb_interpretations,fires_post1interpretations,fires_po
 ## df_inters 
 ## read if not processed
 df_inters <- read.csv2(file.path("P:/workspace/jan/fire_detection/disturbance_ref/bb_timesync_reference_with_wind.csv"))
+df_inters[df_inters$change_process == "Fire_salvage",] <- "Fire"
 table(df_inters$change_process)
 
 
+
+
+## PreProcess
 # _______________________________________________________________________________ #
 
 ## load LS 
 path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_dl_2.csv"
 L_ts            <- read.csv2(path_LandSat_ts)
-
 length(intersect(df_inters$plotid, L_ts$id))
 
 ## filter fot tiles with all incides 
@@ -53,37 +56,34 @@ tiles_to_keep <- L_ts %>% group_by(tile) %>% summarise(n_index = length(unique(i
 L_ts <- L_ts[L_ts$tile %in% tiles_to_keep$tile, ]
 
 ## only keep samples that are in tsync ref and Landsat
+ids_to_keep <- intersect(L_ts$id, df_inters$plotid)
 
-tt <- L_ts[L_ts$id %in% intersect(L_ts$id, df_inters$id), ]
+ids_to_exclude <-  c(3142,719, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
+wind_exclude <- c(84, 85, 87, 88, 89, 91, 93, 94, 96, 97, 98, 99,100, 102, 103, 104, 106, 107, 108, 109, 110, 111, 112, 113, 114, 119, 120, 122, 126, 127, 130,  131, 134,135, 136, 139, 142, 143, 144, 150, 155, 156, 158, 164, 168, 169, 172, 177, 178, 179, 182, 183, 184, 185, 188, 189, 190, 192, 193, 194, 195, 197, 199, 201, 204, 206, 207, 208, 209, 210, 211, 213, 221, 222, 223, 224, 225, 228, 229, 231, 233, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 260, 261, 262, 264, 267, 268, 269, 270, 271, 272, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 314, 315, 316, 317, 318, 319, 320, 321, 322, 325, 326, 329, 330, 331, 332, 333, 334, 335, 336, 341, 342, 343, 344, 345, 347, 348, 349, 351, 356, 357, 358, 359, 361, 363) + 6000
+wind_exclude_2 <- c(0, 2, 3, 4, 6, 7, 9, 11, 19, 20, 21, 24, 27, 30, 33, 34, 35, 43, 46, 47, 49) + 7000
+ids_to_exclude <- c(ids_to_exclude, wind_exclude, wind_exclude_2)
+rm(wind_exclude, wind_exclude_2)
 
+ids_to_keep <- ids_to_keep[!ids_to_keep %in% ids_to_exclude]
+L_ts <- L_ts[L_ts$id %in% ids_to_keep, ]
+df_inters <- df_inters[df_inters$plotid %in% ids_to_keep,]
 
-length(unique(L_ts$id))
-
-unique(df_inters$plotid)
-unique(L_ts$id)
-
-df_inters$plotid[!df_inters$plotid %in% L_ts$id]
 # _______________________________________________________________________________ #
 
 #### #1 Apply sliced time window selection ####
-
 classes_to_include <- c("Fire","Harvest","Other","Growth","Stable", "Wind")
 number_of_samples  <- 400
 path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_2_with_outliers_till_2022_post1.csv"
 padding_days    <- 10
 years_prior_stable <- 3
-ids_to_exclude <-  c(3142,719, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
-wind_exclude <- c(84, 85, 87, 88, 89, 91, 93, 94, 96, 97, 98, 99,100, 102, 103, 104, 106, 107, 108, 109, 110, 111, 112, 113, 114, 119, 120, 122, 126, 127, 130,  131, 134,135, 136, 139, 142, 143, 144, 150, 155, 156, 158, 164, 168, 169, 172, 177, 178, 179, 182, 183, 184, 185, 188, 189, 190, 192, 193, 194, 195, 197, 199, 201, 204, 206, 207, 208, 209, 210, 211, 213, 221, 222, 223, 224, 225, 228, 229, 231, 233, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 260, 261, 262, 264, 267, 268, 269, 270, 271, 272, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 314, 315, 316, 317, 318, 319, 320, 321, 322, 325, 326, 329, 330, 331, 332, 333, 334, 335, 336, 341, 342, 343, 344, 345, 347, 348, 349, 351, 356, 357, 358, 359, 361, 363) + 6000
-wind_exclude_2 <- c(0, 2, 3, 4, 6, 7, 9, 11, 19, 20, 21, 24, 27, 30, 33, 34, 35, 43, 46, 47, 49) + 7000
 
-ids_to_exclude <- c(ids_to_exclude, wind_exclude, wind_exclude_2)
 
 index_list <- c("NBR", "NDV", "TCW", "TCG", "TCB")
 index_list <- c("BLU","GRN","RED","NIR","SW1","SW2","NDV","EVI","NBR")
 
 
 
-df_for_dl <- bm_select_ref_and_extract_dl_df(L_ts=L_ts,
+df_for_dl <-bm_select_ref_and_extract_dl_df_moving_window(L_ts=L_ts,
                                              df_inters = df_inters,
                                              classes_to_include = classes_to_include,
                                              number_of_samples = number_of_samples, 
@@ -99,7 +99,7 @@ table(df_for_dl$change_process)
 df_for_dl_wide <- df_for_dl %>% select(!c(date,change_process,diff,instance, sensor)) %>% pivot_wider(names_from = c(time_seq),values_from = value) %>%
   arrange(.,id,index) %>% as.data.frame()
 
-y_safe <- df_for_dl_wide$changes_rep[seq(1,nrow(df_for_dl_wide),length(index_list))]
+y_safe <-  df_for_dl_wide$changes_rep[seq(1,nrow(df_for_dl_wide),length(index_list))]
 x_safe <-  df_for_dl_wide %>% select(c(seq(ncol(df_for_dl_wide)- (2 * padding_days ), ncol(df_for_dl_wide))))
 ## 799 samples
 ## anforderungen -- [samples, features, timeseries per feature]
@@ -118,8 +118,8 @@ write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_t
 # _______________________________________________________________________________ #
 #### #2 Apply all time series selection ####
 
-df_for_dl <- bm_extract_dl_df(L_ts[1:200000,], df_inters,classes_to_include = c("Harvest","Other","Fire","Growth","Wind","Decline","Hydrology"), 
-                              ids_to_exclude = ids_to_exclude, index_list = c("NBR", "NDV", "TCW", "TCG", "TCB")
+df_for_dl <- bm_extract_dl_df_all_ts(L_ts[1:200000,], df_inters,classes_to_include = c("Harvest","Other","Fire","Growth","Wind","Decline","Hydrology"), 
+                              ids_to_exclude = ids_to_exclude, index_list = c("NDV","EVI")
 )
 table(df_for_dl$change_process)
 
@@ -133,4 +133,32 @@ df_for_dl_wide <- df_for_dl %>% select(!c(change_process,date,diff,instance, sen
 write.table(df_for_dl, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/03_df_x_200000_ts_long.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
 
+
+# _______________________________________________________________________________ #
+#### #3 Apply selection for unet ####
+table(df_inters$change_process)
+
+classes_to_include      <- c("Fire","Harvest","Insect","Wind","Growth","Stable")
+number_of_samples_each  <- 200
+index_list_to_use       <- c("BLU","GRN","RED","NIR","SW1","SW2","NDV","EVI","NBR")
+index_list_to_use       <- c("NDV")
+
+## find minimum length of time series 
+head(L_ts)
+n_ts_sample <- L_ts %>% filter(index == index_list_to_use[1]) %>% group_by(id) %>% summarise(n_ = n())
+hist(n_ts_sample$n_, breaks = 40)
+n_ts_sample[order(n_ts_sample$n_),]
+
+## set to 240 
+n_ts_sample <- n_ts_sample[n_ts_sample$n_ > 240,]
+L_ts <- L_ts[L_ts$id %in% n_ts_sample$id, ]
+df_inters <- df_inters[df_inters$plotid %in% n_ts_sample$id,]
+
+## safe data sets 
+write.csv2(L_ts, "P:/workspace/jan/fire_detection/dl/Landsat_ts_filtered.csv")
+write.csv2(df_inters, "P:/workspace/jan/fire_detection/dl/Refs_filtered.csv")
+
+## Function for preparation of data sets 
+
+## select ts with minimum window size at end of time series
 
