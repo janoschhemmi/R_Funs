@@ -1,7 +1,10 @@
 
+setwd("C:/Users/geo_jahe/R_Projects/Jan/R_Funs/")
 source("data_handling/create_dl_dfs/utils_dl_ts_from_force_ts.R")
 source("data_handling/create_dl_dfs/bm_tsync_prepare.R")
 
+#update.packages("tidyr")
+#library(tidyr)
 ## #1
 ## load timesync
 
@@ -9,36 +12,11 @@ source("data_handling/create_dl_dfs/bm_tsync_prepare.R")
 tsync_p <- "p:/timesync/bb/"
 out_csv_file <- "p:/workspace/jan/fire_detection/disturbance_ref/bb_timesync_reference_with_post3_revisited.csv"
 
-# read data
-bb_comment <- read_csv(file.path(tsync_p, "tsync_plots_bb_jan_interpretations_comment.csv"), show_col_types = FALSE)
-fires_comments <- read_csv(file.path(tsync_p, "tsync_fires_interpretations_comment.csv"), show_col_types = FALSE)
-fires_post1_comments <- read_csv(file.path(tsync_p, "tsync_fires_post_training1_interpretations_comment.csv"), show_col_types = FALSE)
-fires_post2_comments <- read_csv(file.path(tsync_p, "tsync_fires_post_training2_interpretations_comment.csv"), show_col_types = FALSE)
-wind1_comments <- read_csv(file.path(tsync_p, "tsync_wind_1_interpretations_comment.csv"), show_col_types = FALSE)
-wind2_comments <- read_csv(file.path(tsync_p, "tsync_wind_2_interpretations_comment.csv"), show_col_types = FALSE)
 
-df_comments <- rbind(bb_comment, fires_comments, fires_post1_comments,fires_post2_comments, wind1_comments, wind2_comments)
-
-bb_interpretations <- read_csv(file.path(tsync_p, "tsync_plots_bb_jan_interpretations.csv"), show_col_types = FALSE)
-fires_interpretations <- read_csv(file.path(tsync_p, "tsync_fires_interpretations.csv"), show_col_types = FALSE)
-fires_post1interpretations <- read_csv(file.path(tsync_p, "tsync_fires_post_training1_interpretations.csv"), show_col_types = FALSE)
-fires_post2interpretations <- read_csv(file.path(tsync_p, "tsync_fires_post_training2_interpretations.csv"), show_col_types = FALSE)
-wind1_inter <- read_csv(file.path(tsync_p, "tsync_wind_1_interpretations.csv"), show_col_types = FALSE)
-wind2_inter <- read_csv(file.path(tsync_p, "tsync_wind_2_interpretations.csv"), show_col_types = FALSE)
-
-df_inters <- rbind(fires_interpretations, fires_post1interpretations,fires_post2interpretations, bb_interpretations, wind1_inter, wind2_inter)
-
-rm(fires_interpretations, bb_interpretations,fires_post1interpretations,fires_post2interpretations,
-   bb_comment, fires_comments,fires_post1_comments, fires_post2_comments)
-# 
-# bm_tsync_prepare(df_inters, df_comments, out_csv_file, overwrite = T)
-
-## df_inters 
 ## read if not processed
 df_inters <- read.csv2(file.path("P:/workspace/jan/fire_detection/disturbance_ref/bb_timesync_reference_with_wind.csv"))
 df_inters[df_inters$change_process == "Fire_salvage",] <- "Fire"
 table(df_inters$change_process)
-
 
 
 
@@ -58,7 +36,7 @@ L_ts <- L_ts[L_ts$tile %in% tiles_to_keep$tile, ]
 ## only keep samples that are in tsync ref and Landsat
 ids_to_keep <- intersect(L_ts$id, df_inters$plotid)
 
-ids_to_exclude <-  c(3142,719, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
+ids_to_exclude <-  c(3712,3711, 3707, 3706, 3674, 3663, 3661, 3609, 3528, 3527, 3506, 3142,719, 3144, 1882, 3038, 1166, 1626, 1819, 2121, 1826, 2059, 2192, 75,424, 1031, 1136, 928, 966, 539, 123, 329, 712, 2110)
 wind_exclude <- c(84, 85, 87, 88, 89, 91, 93, 94, 96, 97, 98, 99,100, 102, 103, 104, 106, 107, 108, 109, 110, 111, 112, 113, 114, 119, 120, 122, 126, 127, 130,  131, 134,135, 136, 139, 142, 143, 144, 150, 155, 156, 158, 164, 168, 169, 172, 177, 178, 179, 182, 183, 184, 185, 188, 189, 190, 192, 193, 194, 195, 197, 199, 201, 204, 206, 207, 208, 209, 210, 211, 213, 221, 222, 223, 224, 225, 228, 229, 231, 233, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 260, 261, 262, 264, 267, 268, 269, 270, 271, 272, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 314, 315, 316, 317, 318, 319, 320, 321, 322, 325, 326, 329, 330, 331, 332, 333, 334, 335, 336, 341, 342, 343, 344, 345, 347, 348, 349, 351, 356, 357, 358, 359, 361, 363) + 6000
 wind_exclude_2 <- c(0, 2, 3, 4, 6, 7, 9, 11, 19, 20, 21, 24, 27, 30, 33, 34, 35, 43, 46, 47, 49) + 7000
 ids_to_exclude <- c(ids_to_exclude, wind_exclude, wind_exclude_2)
@@ -138,10 +116,10 @@ write.table(df_for_dl, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_re
 #### #3 Apply selection for unet ####
 table(df_inters$change_process)
 
-classes_to_include      <- c("Fire","Harvest","Insect","Wind","Growth","Stable")
+classes_to_include      <- c("Fire","Harvest","Insect","Wind","Growth")
 number_of_samples_each  <- 200
 index_list_to_use       <- c("BLU","GRN","RED","NIR","SW1","SW2","NDV","EVI","NBR")
-index_list_to_use       <- c("NDV")
+
 
 ## find minimum length of time series 
 head(L_ts)
@@ -155,10 +133,38 @@ L_ts <- L_ts[L_ts$id %in% n_ts_sample$id, ]
 df_inters <- df_inters[df_inters$plotid %in% n_ts_sample$id,]
 
 ## safe data sets 
-write.csv2(L_ts, "P:/workspace/jan/fire_detection/dl/Landsat_ts_filtered.csv")
-write.csv2(df_inters, "P:/workspace/jan/fire_detection/dl/Refs_filtered.csv")
+#write.csv2(L_ts, "P:/workspace/jan/fire_detection/dl/Landsat_ts_filtered.csv")
+#write.csv2(df_inters, "P:/workspace/jan/fire_detection/dl/Refs_filtered.csv")
+
+L_ts <- read.csv2(L_ts, "P:/workspace/jan/fire_detection/dl/Landsat_ts_filtered.csv")
+df_inters <- read.csv2( "P:/workspace/jan/fire_detection/dl/Refs_filtered.csv")
+
+## select ids from refs 
+table(df_inters_select$change_process)
+df_inters_select  <- df_inters %>%
+  filter(change_process %in% classes_to_include) %>%
+  group_by(change_process)  %>% 
+  do(sample_n(.,number_of_samples_each))
+
+L_ts_selected <- L_ts_s[L_ts_s$id %in% df_inters_select$plotid,]
 
 ## Function for preparation of data sets 
+prepared_unet <- bm_extract_dl_df_UNET(L_ts_selected, df_inters = df_inters_select, ts_length = 240, classes_to_include = classes_to_include,
+                                       index_list = index_list_to_use)
 
-## select ts with minimum window size at end of time series
+## 
+length(unique(prepared_unet$id))
+length(unique(df_inters_select$plotid))
+summary(prepared_unet)
+df_for_dl_wide <- prepared_unet %>% select(!c(x,y,change_process.x, change_process.y, tile,
+                                              diff.y,diff.x,instance.y,instance.x, sensor, date)) %>% pivot_wider(names_from = time_sequence,values_from = value) %>%
+  arrange(.,id,index) %>% as.data.frame()
+
+y_safe <-  prepared_unet %>% filter(index %in% index_list_to_use[1]) %>% select(id, date, change_process.y)
+x_safe <- df_for_dl_wide %>% mutate(index = factor(index, levels = index_list_to_use)) %>% arrange(id, index)
+
+#
+write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/04_unet_df_y_200smps.csv"),row.names = FALSE)
+write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/04_unet_df_x_200smps.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
+
 

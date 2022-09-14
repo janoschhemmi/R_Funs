@@ -38,7 +38,7 @@ bm_select_ref_and_extract_dl_df_moving_window <- function(L_ts, df_inters,classe
   
   set.seed(85)
   ## filter_ref
-  df_inters_filtered <- df_inters %>% 
+  df_inters_filtered <- df_inter %>% 
     filter(change_process %in% classes_to_include) %>%
     group_by(plotid) %>%
     mutate(dist_prior = image_year - lag(image_year)) %>%
@@ -274,116 +274,110 @@ bm_extract_dl_df_all_ts <- function(L_ts, df_inters,classes_to_include = c("Harv
 
 
 ## output all time series 
-bm_extract_dl_df_UNET <- function(L_ts, df_inters,classes_to_include = c("Harvest","Insect","Fire","Fire_salvage","Growth","Wind","Stable","None"), number_of_samples_each, index_list
+bm_extract_dl_df_UNET <- function(L_ts, df_inters,ts_length = 240 ,classes_to_include = c("Harvest","Insect","Fire","Fire_salvage","Growth","Wind","Stable","None"), number_of_samples_each, index_list
 ){
   
   set.seed(102)
-  
-  df_inters[df_inters$change_process == "Fire_salvage",] <- "Fire"
+  #df_inters_select
+  #df_inters[df_inters$change_process == "Fire_salvage",] <- "Fire"
+  #df_inters[df_inters$change_process == "Harvest_salvage",] <- "None"
+  #df_inters[df_inters$change_process == "Hydrology",] <- "Harvest"
   
   df_inters_filtered <- df_inters %>% 
     filter(change_process %in% classes_to_include) %>%
     group_by(plotid) %>%
+    mutate(image_year = as.integer(image_year)) %>%
     mutate(dist_prior = image_year - lag(image_year)) %>%
     ungroup() %>%
     mutate(instance = row_number())
   # 
   df_inters_filtered <- df_inters_filtered %>%
-    mutate(date_ref = strptime(paste(image_year, image_julday), format="%Y %j"))
+    mutate(date_ref = strptime(paste(image_year, image_julday), format="%Y %j")) %>%
+    mutate(plotid = as.integer(plotid))
   
-  head(L_ts)
-  head(df_inters_filtered)
   
-  #L_ts_s <- L_ts
-  L_ts <- L_ts_s[1:400000,]
+  # L_ts_s <- L_ts
+  #L_ts <- L_ts_s[1:400000,]
+  #L_ts <- L_ts_s[,]
+  
   
   ## join ref with Landsat
-  df_inters_filtered_harvest_wind <- df_inters_filtered[df_inters_filtered$change_process %in% c("Wind","Harvest","Fire"),]
+  df_inters_filtered_harvest_wind <- df_inters_filtered[df_inters_filtered$change_process %in% c("Wind","Harvest","Fire"),] 
+  table(df_inters_filtered_harvest_wind$change_process)
+
+  ## set signal for abrupt changes  
   closest_observations_harvest <- L_ts %>% filter(.$id %in% df_inters_filtered_harvest_wind$plotid) %>% 
     filter(index == index_list[1]) %>%
-    left_join(df_inters_filtered, by = c("id"="plotid")) %>%
+    left_join(df_inters_filtered_harvest_wind, by = c("id"="plotid")) %>%
     mutate(diff = abs(as.numeric(difftime(date, date_ref, units = "days")))) %>%
     group_by(id, instance) %>%
     ## select three minimum differences to instance 
-    top_n(., -3, diff) %>%
+    top_n(., -2, diff) %>%
     ungroup() %>%
     select(id,date,change_process,diff, instance) %>%
     as.data.frame()
-  
+
+  ## set signal for longer period for insect damage
   df_inters_filtered_insect <- df_inters_filtered[df_inters_filtered$change_process %in% c("Insect"),]
   closest_observations_insect <- L_ts %>% filter(.$id %in% df_inters_filtered_insect$plotid) %>% 
     filter(index == index_list[1]) %>%
-    left_join(df_inters_filtered, by = c("id"="plotid")) %>%
+    left_join(df_inters_filtered_insect, by = c("id"="plotid")) %>%
     mutate(diff = abs(as.numeric(difftime(date, date_ref, units = "days")))) %>%
     group_by(id, instance) %>%
     ## select 8 minimum differences to instance 
-    top_n(., -8, diff) %>%
+    top_n(., -10, diff) %>%
     ungroup() %>%
     select(id,date,change_process,diff, instance) %>%
     as.data.frame()
   
   closest_observation <- rbind(closest_observations_insect,closest_observations_harvest)
-  #tt <- closest_observations[closest_observations$id %in% c(3,4,5),]
-  table(closest_observations$change_process)
   
-  ## left_join_by date with all indecies
+  # ## signal for growth 
+  # ## fill up trajectory before
+  df_inters_filtered_growth <- df_inters_filtered[df_inters_filtered$change_process %in% c("Growth"),]
+  closest_observations_growth <- L_ts %>% filter(.$id %in% df_inters_filtered_growth$plotid) %>%
+    filter(index == index_list[1]) %>%
+    left_join(df_inters_filtered_growth, by = c("id"="plotid")) %>%
+    mutate(diff = abs(as.numeric(difftime(date, date_ref, units = "days")))) %>%
+    group_by(id, instance) %>%
+    ## select 8 minimum differences to instance
+    top_n(., -1, diff) %>%
+    ungroup() %>%
+    select(id,date,change_process,diff, instance) %>%
+    as.data.frame()
+
+  
+  ## left_join_by date with all short signals
   selected_ts <- L_ts %>% filter(index %in% index_list) %>%
     filter(id %in% df_inters_filtered$plotid) %>% 
-    left_join(.,closest_observations, by = c("id" = "id", "date" = "date")) #%>%
+    left_join(.,closest_observation, by = c("id" = "id", "date" = "date")) %>%
+    ## left_join with growth 
+    left_join(.,closest_observations_growth, by = c("id" = "id", "date" = "date")) #%>%
   
-  # GetIDsBeforeAfter <- function(x) {
-  #   v = (x-padding_days) : (x+padding_days)
-  # }
+  selected_ts[!is.na(selected_ts$change_process.x),]$change_process.y <- selected_ts[!is.na(selected_ts$change_process.x),]$change_process.x
   
-  ## row ids with padding
-  # selected_row_ids <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(change_process))) %>%
-  #   pull(row_id) %>%
-  #   map(GetIDsBeforeAfter) %>%
-  #   unlist()
-  # 
-  # selected_ts_2 <- selected_ts[selected_row_ids,]
+  ## fill up growth 
+  ## first fill all
+  selected_ts <- selected_ts %>% 
+    group_by(id, index) %>% 
+    fill(change_process.y, .direction = 'up' ) %>%
+    as.data.frame()
   
+  ## replace all harvest / insect / wind with NA
+  selected_ts <- selected_ts %>% mutate(change_process.y = ifelse(change_process.y == "Harvest", NA, change_process.y))
+  selected_ts <- selected_ts %>% mutate(change_process.y = ifelse(change_process.y == "Wind", NA, change_process.y))
+  selected_ts <- selected_ts %>% mutate(change_process.y = ifelse(change_process.y == "Fire", NA, change_process.y))
   
-  ## expant instances and change process rows
-  # GetrepsBeforeAfter <- function(x) {
-  #   times = 2 * padding_days + 1  ## how many times replicate pulled instance 
-  #   replicated <- rep(x, times)
-  #   return(replicated)
-  # }
-  # 
-  # selected_reps <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(.$instance))) %>%
-  #   pull(instance) %>%
-  #   map(GetrepsBeforeAfter) %>%
-  #   unlist()
-  # 
-  # selected_ts_2$instances_rep <- selected_reps
-  # 
-  # ## add sequence
-  # Getsequence <- function(x) {
-  #   times = 2 * padding_days + 1  ## how many times replicate pulled instance 
-  #   seq <- seq(1, times)
-  #   return(seq)
-  # }
-  # selected_sequence <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(.$instance))) %>%
-  #   pull(instance) %>%
-  #   map(Getsequence) %>%
-  #   unlist()
-  # 
-  # selected_ts_2$time_seq <- selected_sequence
-  # 
-  # selected_changes <- selected_ts %>%
-  #   mutate(row_id = row_number()) %>%
-  #   filter((!is.na(.$instance))) %>%
-  #   pull(change_process) %>%
-  #   map(GetrepsBeforeAfter) %>%
-  #   unlist()
-  # selected_ts_2$changes_rep <- selected_changes
+  selected_ts <- selected_ts %>% mutate(change_process.y = ifelse(is.na(change_process.y) , change_process.x, change_process.y))
+  selected_ts <- selected_ts %>% mutate(change_process.y = ifelse(is.na(change_process.y) , "Stable", change_process.y))
+  
+  ## select window with minimum time distance
+  #ts_length <- 240
+  selected_ts <- selected_ts %>% group_by(id, index) %>% 
+    arrange(desc(date), .by_group=TRUE) %>% 
+    filter(row_number() <= ts_length) %>%
+    arrange(date, .by_group=TRUE)  %>%
+      ungroup()
   
   # add sequence number 
   selected_ts <- selected_ts %>%

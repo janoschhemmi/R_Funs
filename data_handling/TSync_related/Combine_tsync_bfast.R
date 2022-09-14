@@ -34,7 +34,7 @@ df_comments <- rbind(bb_comment, fires_comments, fires_post1_comments,fires_post
 
 bb_interpretations <- read_csv(file.path(tsync_p, "tsync_plots_bb_jan_interpretations.csv"), show_col_types = FALSE)
 fires_interpretations <- read_csv(file.path(tsync_p, "tsync_fires_interpretations.csv"), show_col_types = FALSE)
-fires_interpretations <- fires_interpretations[!fires_interpretations$plotid %in% fires_exclude,]
+fires_interpretations <- fires_interpretations[!fires_interpretations$plotid %in% fire_exclude,]
 
 fires_post1interpretations <- read_csv(file.path(tsync_p, "tsync_fires_post_training1_interpretations.csv"), show_col_types = FALSE)
 fires_post2interpretations <- read_csv(file.path(tsync_p, "tsync_fires_post_training2_interpretations.csv"), show_col_types = FALSE)
