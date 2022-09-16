@@ -38,7 +38,8 @@ bm_select_ref_and_extract_dl_df_moving_window <- function(L_ts, df_inters,classe
   
   set.seed(85)
   ## filter_ref
-  df_inters_filtered <- df_inter %>% 
+  # table(df_inters$change_process)
+  df_inters_filtered <- df_inters %>% 
     filter(change_process %in% classes_to_include) %>%
     group_by(plotid) %>%
     mutate(dist_prior = image_year - lag(image_year)) %>%

@@ -50,6 +50,8 @@ bm_tsync_prepare <- function(df_inters, df_comments, out_csv_file, overwrite=F) 
   df_inters$change_process_brandsat[df_inters$change_process == "Fire_salvage"]  <- "Fire_salvage"
   df_inters$change_process_brandsat[df_inters$change_process == "Harvest_salvage"]  <- "None"
   df_inters$change_process_brandsat[df_inters$change_process == "Growth"]     <- "Growth"
+  df_inters$change_process_brandsat[df_inters$change_process == "Stable"]     <- "Stable"
+  
   
   table(df_inters$change_process, df_inters$change_process_brandsat)
   

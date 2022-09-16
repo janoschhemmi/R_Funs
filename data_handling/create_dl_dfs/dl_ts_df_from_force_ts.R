@@ -1,7 +1,7 @@
 
 setwd("C:/Users/geo_jahe/R_Projects/Jan/R_Funs/")
 source("data_handling/create_dl_dfs/utils_dl_ts_from_force_ts.R")
-source("data_handling/create_dl_dfs/bm_tsync_prepare.R")
+source("data_handling/create_dl_dfs/dl_ts_df_from_force_ts.R")
 
 #update.packages("tidyr")
 #library(tidyr)
@@ -10,10 +10,10 @@ source("data_handling/create_dl_dfs/bm_tsync_prepare.R")
 
 # file names and paths
 tsync_p <- "p:/timesync/bb/"
-out_csv_file <- "p:/workspace/jan/fire_detection/disturbance_ref/bb_timesync_reference_with_post3_revisited.csv"
+#out_csv_file <- "p:/workspace/jan/fire_detection/disturbance_ref/bb_timesync_reference_with_post3_revisited.csv"
 
 
-## read if not processed
+## read inters
 df_inters <- read.csv2(file.path("P:/workspace/jan/fire_detection/disturbance_ref/bb_timesync_reference_with_wind.csv"))
 df_inters[df_inters$change_process == "Fire_salvage",] <- "Fire"
 table(df_inters$change_process)
@@ -49,15 +49,16 @@ df_inters <- df_inters[df_inters$plotid %in% ids_to_keep,]
 # _______________________________________________________________________________ #
 
 #### #1 Apply sliced time window selection ####
-classes_to_include <- c("Fire","Harvest","Other","Growth","Stable", "Wind")
-number_of_samples  <- 400
-path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_2_with_outliers_till_2022_post1.csv"
+table(df_inters$change_process)
+classes_to_include <- c("Fire","Harvest","Other","Wind", "Growth","Stable", "Wind")
+number_of_samples  <- 250
+# path_LandSat_ts <- "P:/workspace/jan/fire_detection/Landsat_ts/extracted_Landsat_ts_2_with_outliers_till_2022_post1.csv"
 padding_days    <- 10
 years_prior_stable <- 3
 
 
 index_list <- c("NBR", "NDV", "TCW", "TCG", "TCB")
-index_list <- c("BLU","GRN","RED","NIR","SW1","SW2","NDV","EVI","NBR")
+index_list <- c("BLU","GRN","RED","NIR","SW1","SW2","NDV","NBR")
 
 
 
@@ -69,7 +70,10 @@ df_for_dl <-bm_select_ref_and_extract_dl_df_moving_window(L_ts=L_ts,
                                              years_prior_stable = years_prior_stable, 
                                              ids_to_exclude = ids_to_exclude, 
                                              index_list = index_list)
-table(df_for_dl$change_process)
+table(df_for_dl$id)
+
+ids_not_complete <- df_for_dl %>% group_by(id) %>% summarise( n = n()) %>% filter(!n  %in% c(168, 168*2,168*3,168*4,168*5)) %>% select(id)
+df_for_dl <- df_for_dl %>% filter(!id %in% ids_not_complete$id)
 
 #write.csv2(df_for_dl, "P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_for_dl_200_4_classes.csv")
 #df_for_dl <- read.csv2("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/01_df_for_dl_200_4_classes.csv")
@@ -81,16 +85,18 @@ y_safe <-  df_for_dl_wide$changes_rep[seq(1,nrow(df_for_dl_wide),length(index_li
 x_safe <-  df_for_dl_wide %>% select(c(seq(ncol(df_for_dl_wide)- (2 * padding_days ), ncol(df_for_dl_wide))))
 ## 799 samples
 ## anforderungen -- [samples, features, timeseries per feature]
+table(y_safe)
 
 y_safe[y_safe == "Fire"] <- 1
 y_safe[y_safe == "Harvest"] <- 2
 y_safe[y_safe == "Other"] <- 3
-y_safe[y_safe == "Stable"] <- 4
-y_safe[y_safe == "Growth"] <- 5
+y_safe[y_safe == "Wind"] <- 5
+y_safe[y_safe == "Stable"] <- 6
+y_safe[y_safe == "Growth"] <- 7
 y_safe <- as.integer(y_safe)
 
-write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_y_",padding_days,"_400smps.csv"),row.names = FALSE)
-write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/02_df_x_",padding_days,"_400smps.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
+write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/05_df_y_",padding_days,"_250smps.csv"),row.names = FALSE)
+write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/05_df_x_",padding_days,"_250smps.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
 
 # _______________________________________________________________________________ #
@@ -162,8 +168,9 @@ df_for_dl_wide <- prepared_unet %>% select(!c(x,y,change_process.x, change_proce
 
 y_safe <-  prepared_unet %>% filter(index %in% index_list_to_use[1]) %>% select(id, date, change_process.y)
 x_safe <- df_for_dl_wide %>% mutate(index = factor(index, levels = index_list_to_use)) %>% arrange(id, index)
-
+x_safe <- x_safe[!x_safe$index %in% c("EVI"),]
 #
+colnames(y_safe) <-  c("id", "date", "change_process")
 write.csv2(y_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/04_unet_df_y_200smps.csv"),row.names = FALSE)
 write.table(x_safe, paste0("P:/workspace/jan/fire_detection/dl/prepocessed_ref_tables/04_unet_df_x_200smps.csv"), row.names = FALSE, col.names = TRUE, dec = ".", sep = ";")
 
