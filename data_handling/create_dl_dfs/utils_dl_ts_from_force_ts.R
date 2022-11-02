@@ -32,7 +32,7 @@ library(purrr)
 
 
 ## FUNS
-bm_select_ref_and_extract_dl_df_moving_window <- function(L_ts, df_inters,classes_to_include, number_of_samples, padding_days = padding_days, 
+bm_select_ref_and_extract_dl_df_moving_window <- function(L_ts,  df_inters,classes_to_include, number_of_samples, padding_days = padding_days, 
                                                           years_prior_stable, ids_to_exclude = ids_to_exclude, index_list
 ){
   
@@ -41,16 +41,22 @@ bm_select_ref_and_extract_dl_df_moving_window <- function(L_ts, df_inters,classe
   # table(df_inters$change_process)
   df_inters_filtered <- df_inters %>% 
     filter(change_process %in% classes_to_include) %>%
+    #filter(plotid == 10) %>%
     group_by(plotid) %>%
-    mutate(dist_prior = image_year - lag(image_year)) %>%
+    mutate(lag = lag(image_year)) %>%
+    mutate(dist_prior = ifelse(is.na(lag), as.character(1985), as.character(lag))) %>%
+    mutate(dist_prior = as.integer(image_year) - as.integer(dist_prior)) %>%
     ungroup() %>%
     mutate(instance = row_number())
   
-  ## exclude refs that are always exlcuded
+  ## exclude refsamples that are always exlcuded
   df_inters_filtered <- df_inters_filtered[!df_inters_filtered$plotid %in% ids_to_exclude,]
   df_inters_filtered <- df_inters_filtered[df_inters_filtered$plotid %in% L_ts$id,]
   
   ## sample disturbances
+  table(df_inters_filtered$change_process)
+  table(df_disturbances$change_process)
+  
   df_disturbances <- df_inters_filtered %>%
     filter(change_process %in% classes_to_include[!classes_to_include %in% c("Stable","Growth")]) %>%
     filter(image_year > 1989) %>%
@@ -64,10 +70,10 @@ bm_select_ref_and_extract_dl_df_moving_window <- function(L_ts, df_inters,classe
     filter(dist_prior >= years_prior_stable) %>%
     group_by(change_process) %>%
     do(sample_n(.,number_of_samples)) %>%
-    ungroup() %>%
-    mutate(image_year =  image_year - as.integer(runif(nrow(.), min = 1, max = dist_prior)),
-           image_julday = as.integer(runif(nrow(.), min = 0, max = 365)))
-  
+    ungroup() 
+   # mutate(image_year =  image_year - as.integer(runif(nrow(.), min = 1, max = (dist_prior))),
+  #         image_julday = as.integer(runif(nrow(.), min = 0, max = 365)))
+  #
   ## sample Growth (halfway in growth window)
   df_growth <- df_inters_filtered %>%
     filter(change_process %in% c ("Growth")) %>%
@@ -76,12 +82,20 @@ bm_select_ref_and_extract_dl_df_moving_window <- function(L_ts, df_inters,classe
     group_by(change_process) %>%
     do(sample_n(.,number_of_samples)) %>%
     ungroup() %>%
-    mutate(image_year =  image_year - as.integer(dist_prior / 2),
+    mutate(image_year =  as.integer(image_year) - (as.integer(dist_prior) / 2),
            image_julday = as.integer(runif(nrow(.), min = 0, max = 365)))
   
   ## combine
+  df_growth$image_year <- as.character(df_growth$image_year)
+  df_growth$image_julday <- as.character(df_growth$image_julday)
+  
+  df_disturbances$plotid <- as.integer(df_disturbances$plotid)
+  df_stable$plotid <- as.integer(df_stable$plotid)
+  df_growth$plotid <- as.integer(df_growth$plotid)
+  
+  
   df <- rbind(df_disturbances, df_stable, df_growth) %>%
-    mutate(date_ref = strptime(paste(image_year, image_julday), format="%Y %j"))
+    mutate(date_ref = strptime(paste(as.integer(image_year), as.integer(image_julday)), format="%Y %j"))
   
   ## selct closest observation for each ref 
   closest_observations <- L_ts %>% filter(.$id %in% df$plotid) %>% 
